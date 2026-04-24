@@ -34,6 +34,7 @@ CREATE TABLE IF NOT EXISTS node_table (
 
 CREATE TABLE IF NOT EXISTS cells (
     cell_id         TEXT PRIMARY KEY,
+    signing_pubkey  BLOB NOT NULL,
     enc_pubkey      BLOB NOT NULL,
     registered_at   INTEGER NOT NULL,
     is_home         INTEGER NOT NULL DEFAULT 1
@@ -90,6 +91,7 @@ class NodeEntry:
 @dataclass
 class CellEntry:
     cell_id: str
+    signing_pubkey: bytes
     enc_pubkey: bytes
     registered_at: int
     is_home: bool = True
@@ -204,15 +206,18 @@ class Storage:
 
     # --- cells ---
 
-    async def register_cell(self, cell_id: str, enc_pubkey: bytes, is_home: bool = True):
+    async def register_cell(self, cell_id: str, signing_pubkey: bytes,
+                             enc_pubkey: bytes, is_home: bool = True):
         now = int(time.time())
         await self._db.execute(
             """
-            INSERT INTO cells (cell_id, enc_pubkey, registered_at, is_home)
-            VALUES (?,?,?,?)
-            ON CONFLICT(cell_id) DO UPDATE SET enc_pubkey = excluded.enc_pubkey
+            INSERT INTO cells (cell_id, signing_pubkey, enc_pubkey, registered_at, is_home)
+            VALUES (?,?,?,?,?)
+            ON CONFLICT(cell_id) DO UPDATE SET
+                signing_pubkey = excluded.signing_pubkey,
+                enc_pubkey     = excluded.enc_pubkey
             """,
-            (cell_id, enc_pubkey, now, int(is_home)),
+            (cell_id, signing_pubkey, enc_pubkey, now, int(is_home)),
         )
         await self._db.commit()
 
@@ -225,6 +230,7 @@ class Storage:
                 return None
             return CellEntry(
                 cell_id=row["cell_id"],
+                signing_pubkey=bytes(row["signing_pubkey"]),
                 enc_pubkey=bytes(row["enc_pubkey"]),
                 registered_at=row["registered_at"],
                 is_home=bool(row["is_home"]),
@@ -239,6 +245,7 @@ class Storage:
         return [
             CellEntry(
                 cell_id=r["cell_id"],
+                signing_pubkey=bytes(r["signing_pubkey"]),
                 enc_pubkey=bytes(r["enc_pubkey"]),
                 registered_at=r["registered_at"],
                 is_home=bool(r["is_home"]),

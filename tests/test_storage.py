@@ -102,15 +102,17 @@ class TestNodeTable:
 
 class TestCells:
     async def test_register_and_get(self, storage):
-        enc_pub = b"\xab" * 32
-        await storage.register_cell("cell1", enc_pub)
+        sign_pub = b"\xaa" * 32
+        enc_pub  = b"\xab" * 32
+        await storage.register_cell("cell1", sign_pub, enc_pub)
         cell = await storage.get_cell("cell1")
         assert cell.cell_id == "cell1"
+        assert cell.signing_pubkey == sign_pub
         assert cell.enc_pubkey == enc_pub
         assert cell.is_home is True
 
     async def test_register_visiting_cell(self, storage):
-        await storage.register_cell("cell1", b"x" * 32, is_home=False)
+        await storage.register_cell("cell1", b"s" * 32, b"x" * 32, is_home=False)
         cell = await storage.get_cell("cell1")
         assert cell.is_home is False
 
@@ -118,22 +120,23 @@ class TestCells:
         assert await storage.get_cell("ghost") is None
 
     async def test_list_cells(self, storage):
-        await storage.register_cell("c1", b"a" * 32, is_home=True)
-        await storage.register_cell("c2", b"b" * 32, is_home=False)
+        await storage.register_cell("c1", b"s1" * 16, b"a" * 32, is_home=True)
+        await storage.register_cell("c2", b"s2" * 16, b"b" * 32, is_home=False)
         all_cells = await storage.list_cells()
         assert len(all_cells) == 2
 
     async def test_list_home_only(self, storage):
-        await storage.register_cell("c1", b"a" * 32, is_home=True)
-        await storage.register_cell("c2", b"b" * 32, is_home=False)
+        await storage.register_cell("c1", b"s1" * 16, b"a" * 32, is_home=True)
+        await storage.register_cell("c2", b"s2" * 16, b"b" * 32, is_home=False)
         home = await storage.list_cells(home_only=True)
         assert len(home) == 1
         assert home[0].cell_id == "c1"
 
-    async def test_upsert_updates_enc_pubkey(self, storage):
-        await storage.register_cell("c1", b"a" * 32)
-        await storage.register_cell("c1", b"b" * 32)  # update
+    async def test_upsert_updates_pubkeys(self, storage):
+        await storage.register_cell("c1", b"s1" * 16, b"a" * 32)
+        await storage.register_cell("c1", b"s2" * 16, b"b" * 32)  # update
         cell = await storage.get_cell("c1")
+        assert cell.signing_pubkey == b"s2" * 16
         assert cell.enc_pubkey == b"b" * 32
 
 

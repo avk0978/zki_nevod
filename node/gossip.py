@@ -85,7 +85,10 @@ class GossipEngine:
 
         pkt = make_ping(self.node.identity.node_id, entry.node_id)
         try:
-            await asyncio.wait_for(conn.send(pkt), timeout=PING_TIMEOUT)
+            await asyncio.wait_for(
+                self.node.transport.send_via(conn, pkt),
+                timeout=PING_TIMEOUT,
+            )
             await self.node.storage.update_node_ping(entry.node_id, success=True)
         except Exception:
             await self.node.storage.update_node_ping(entry.node_id, success=False)
@@ -98,7 +101,7 @@ class GossipEngine:
         entries = [n.to_dict() for n in all_nodes]
         pkt = make_gossip(self.node.identity.node_id, entries)
         try:
-            await conn.send(pkt)
+            await self.node.transport.send_via(conn, pkt)
         except Exception as e:
             log.debug("gossip send to %s failed: %s", peer.node_id[:8], e)
 
@@ -131,7 +134,7 @@ class GossipEngine:
 
     async def handle_ping(self, pkt: Packet, conn):
         pong = make_pong(self.node.identity.node_id, pkt.from_addr, pkt.id)
-        await conn.send(pong)
+        await self.node.transport.send_via(conn, pong)
 
     async def handle_pong(self, pkt: Packet):
         node_id = pkt.from_addr

@@ -17,9 +17,7 @@ Packet format:
 
 import uuid
 import time
-import hashlib
 from dataclasses import dataclass, field
-from typing import Optional
 
 import msgpack
 
@@ -98,6 +96,23 @@ def unpack(data: bytes) -> Packet:
         sig=d.get("sig", b"") or b"",
         ts=d.get("ts", 0),
     )
+
+
+# --- Signing ---
+
+def sign_packet(packet: Packet, signing_kp) -> Packet:
+    """Sign packet in-place (sets sig field) and return it."""
+    from .crypto import sign
+    packet.sig = sign(packet.sign_data(), signing_kp)
+    return packet
+
+
+def verify_packet(packet: Packet, signing_pubkey: bytes) -> bool:
+    """Verify packet signature. Returns False if sig is missing or invalid."""
+    if not packet.sig:
+        return False
+    from .crypto import verify
+    return verify(packet.sign_data(), packet.sig, signing_pubkey)
 
 
 # --- Payload helpers (msgpack encode/decode dicts into payload bytes) ---

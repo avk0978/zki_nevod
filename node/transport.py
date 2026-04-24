@@ -15,7 +15,7 @@ from typing import Optional, Callable, Dict, Awaitable
 import websockets
 from websockets.exceptions import ConnectionClosed
 
-from .protocol import Packet, pack, unpack, T
+from .protocol import Packet, pack, unpack, sign_packet, verify_packet, T
 from .auth import make_challenge, make_response, verify_response, AuthResult
 
 log = logging.getLogger(__name__)
@@ -27,10 +27,11 @@ PacketHandler = Callable[[Packet, "PeerConnection"], Awaitable[None]]
 class PeerConnection:
     """Authenticated connection to a remote node."""
 
-    def __init__(self, ws, peer_node_id: str, peer_enc_pubkey: bytes,
-                 local_node_id: str):
+    def __init__(self, ws, peer_node_id: str, peer_signing_pubkey: bytes,
+                 peer_enc_pubkey: bytes, local_node_id: str):
         self.ws = ws
         self.peer_node_id = peer_node_id
+        self.peer_signing_pubkey = peer_signing_pubkey
         self.peer_enc_pubkey = peer_enc_pubkey
         self.local_node_id = local_node_id
 
@@ -129,13 +130,21 @@ class Transport:
         asyncio.create_task(self._recv_loop(conn))
         return conn
 
+    def sign(self, packet: Packet) -> Packet:
+        """Sign packet with this node's signing key."""
+        return sign_packet(packet, self.identity.signing)
+
+    async def send_via(self, conn: PeerConnection, packet: Packet):
+        """Sign and send via a specific connection."""
+        await conn.send(self.sign(packet))
+
     async def send_to(self, node_id: str, packet: Packet) -> bool:
-        """Send packet to a connected peer. Returns False if not connected."""
+        """Sign and send packet to a connected peer. Returns False if not connected."""
         conn = await self.connections.get(node_id)
         if not conn:
             return False
         try:
-            await conn.send(packet)
+            await self.send_via(conn, packet)
             return True
         except ConnectionClosed:
             await self.connections.remove(node_id)
@@ -199,6 +208,7 @@ class Transport:
         return PeerConnection(
             ws=ws,
             peer_node_id=result.node_id,
+            peer_signing_pubkey=result.signing_pubkey,
             peer_enc_pubkey=result.enc_pubkey,
             local_node_id=node_id,
         )
@@ -207,6 +217,12 @@ class Transport:
         try:
             async for raw in conn.ws:
                 pkt = unpack(raw)
+                if not verify_packet(pkt, conn.peer_signing_pubkey):
+                    log.warning(
+                        "dropped packet type=%s from %s: invalid signature",
+                        pkt.type, conn.peer_node_id[:8],
+                    )
+                    continue
                 try:
                     await self.on_packet(pkt, conn)
                 except Exception as e:

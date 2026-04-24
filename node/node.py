@@ -212,17 +212,18 @@ class Node:
             from_addr=self.identity.node_id,
             to_addr=pkt.from_addr,
         )
-        await conn.send(response)
+        await self.transport.send_via(conn, response)
 
     async def _handle_cell_register(self, pkt: Packet, conn: PeerConnection):
         try:
             data = decode_payload(pkt.payload)
-            cell_id  = data["cell_id"]
-            enc_pub  = bytes(data["enc_pubkey"])
-            is_home  = bool(data.get("is_home", True))
+            cell_id      = data["cell_id"]
+            signing_pub  = bytes(data["signing_pubkey"])
+            enc_pub      = bytes(data["enc_pubkey"])
+            is_home      = bool(data.get("is_home", True))
         except Exception:
             return
-        await self.storage.register_cell(cell_id, enc_pub, is_home)
+        await self.storage.register_cell(cell_id, signing_pub, enc_pub, is_home)
         await self.storage.update_presence(
             cell_id,
             home_node_id=self.identity.node_id,
@@ -232,9 +233,10 @@ class Node:
 
     # --- convenience ---
 
-    async def register_cell_locally(self, cell_id: str, enc_pubkey: bytes):
+    async def register_cell_locally(self, cell_id: str,
+                                     signing_pubkey: bytes, enc_pubkey: bytes):
         """Register a local cell on this node."""
-        await self.storage.register_cell(cell_id, enc_pubkey, is_home=True)
+        await self.storage.register_cell(cell_id, signing_pubkey, enc_pubkey, is_home=True)
         await self.storage.update_presence(
             cell_id,
             home_node_id=self.identity.node_id,

@@ -90,7 +90,7 @@ class Router:
 
         try:
             conn = await self.node.transport.connect_to_node(node_id, entry.address)
-            await conn.send(pkt)
+            await self.node.transport.send_via(conn, pkt)
             return True
         except Exception as e:
             log.debug("router: failed to connect to %s: %s", node_id[:8], e)

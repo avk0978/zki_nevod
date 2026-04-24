@@ -112,10 +112,11 @@ class TestCellRegistration:
             cell_sign = gen_signing()
             cell_enc  = gen_encryption()
             cell_id   = cell_sign.public.hex()
-            await n.register_cell_locally(cell_id, cell_enc.public)
+            await n.register_cell_locally(cell_id, cell_sign.public, cell_enc.public)
 
             cell = await n.storage.get_cell(cell_id)
             assert cell is not None
+            assert cell.signing_pubkey == cell_sign.public
             assert cell.enc_pubkey == cell_enc.public
         finally:
             await n.stop()
@@ -125,8 +126,9 @@ class TestCellRegistration:
         await n.start()
         try:
             from node.crypto import gen_signing, gen_encryption
-            cell_id = gen_signing().public.hex()
-            await n.register_cell_locally(cell_id, gen_encryption().public)
+            cell_sign = gen_signing()
+            cell_id   = cell_sign.public.hex()
+            await n.register_cell_locally(cell_id, cell_sign.public, gen_encryption().public)
 
             presence = await n.storage.get_presence(cell_id)
             assert presence is not None
@@ -144,7 +146,7 @@ class TestMessageRouting:
             cell_sign = gen_signing()
             cell_enc  = gen_encryption()
             cell_id   = cell_sign.public.hex()
-            await n.register_cell_locally(cell_id, cell_enc.public)
+            await n.register_cell_locally(cell_id, cell_sign.public, cell_enc.public)
 
             # manually set presence to an offline node so message gets buffered
             await n.storage.update_presence(cell_id, "ghost_node_id", None)
@@ -189,7 +191,7 @@ class TestMessageRouting:
             cell_sign = gen_signing()
             cell_enc  = gen_encryption()
             cell_id   = cell_sign.public.hex()
-            await n.register_cell_locally(cell_id, cell_enc.public)
+            await n.register_cell_locally(cell_id, cell_sign.public, cell_enc.public)
 
             await n.send_message(f"{cell_id}@{n.identity.node_id}", b"hello")
             await asyncio.sleep(0.1)
