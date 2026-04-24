@@ -179,10 +179,70 @@ Use cases:
 
 ---
 
-## Status
+## Implementation Status
 
-> Concept and specification phase.  
-> Implementation in progress.
+**v0.1 — core node + cell client implemented and tested.**
+
+### Done
+
+| Module | What it does | Tests |
+|--------|-------------|-------|
+| `node/crypto.py` | Ed25519 signing, X25519+ChaCha20 E2E encryption, HKDF-SHA256 KDF | 10 |
+| `node/protocol.py` | MessagePack wire format, packet signing/verification | 14 |
+| `node/identity.py` | Node and Cell identity — generate, save, load (JSON) | 14 |
+| `node/auth.py` | Mutual challenge-response auth (Ed25519 nonce signing) | 9 |
+| `node/storage.py` | SQLite: node_table, cells, presence_table, message_buffer (72h TTL) | 27 |
+| `node/transport.py` | WebSocket transport — sign all outgoing, drop invalid incoming | 4 |
+| `node/gossip.py` | 30s gossip cycle — ping, PONG, node_table exchange | — |
+| `node/router.py` | Message routing: presence lookup → visiting → home → buffer | — |
+| `node/node.py` | Orchestrator — genesis, join, CELL_REGISTER, flush_buffer | 11 |
+| `node/client.py` | CellClient — connect, E2E send/recv, buffered delivery | 13 |
+| `nevod.py` | CLI: `node init/genesis/start/join/info` + `cell init/info/connect` | — |
+
+**138 tests, all passing.**
+
+### Quick Start
+
+```bash
+pip install -r requirements.txt
+
+# Terminal 1 — start genesis node
+python nevod.py genesis 127.0.0.1:8765
+
+# Terminal 2 — Alice
+python nevod.py cell init alice
+python nevod.py cell connect alice.cell.json 127.0.0.1:8765
+# → shows cell_id and enc_pub
+
+# Terminal 3 — Bob
+python nevod.py cell init bob
+python nevod.py cell connect bob.cell.json 127.0.0.1:8765
+# → shows cell_id and enc_pub
+
+# In Alice's terminal — register Bob as contact and send:
+/add bob <bob_cell_id> <bob_enc_pub>
+bob: hello!
+```
+
+### What a node does NOT see
+
+The node receives `MSG` packets with fields:
+- `from_addr` — sender's `cell_id@node_id` (routing metadata)
+- `to_addr` — recipient's `cell_id@node_id` (routing metadata)
+- `payload` — `{ephemeral_pubkey, nonce, ciphertext}` — opaque encrypted blob
+
+The plaintext is inaccessible to any node operator. By design.
+
+### Roadmap
+
+- [ ] Presence gossip — nodes share cell presence automatically
+- [ ] ACK / delivery confirmation
+- [ ] Multi-device — master keypair signs device subkeys
+- [ ] Group messaging — shared symmetric key, rotated on member leave
+- [ ] NAT traversal — UDP hole punching via home node
+- [ ] TLS transport — upgrade WebSocket to WSS
+- [ ] Strict Schnorr ZKP auth — replace current challenge-response
+- [ ] Node registration consensus — 50% of 20 random nodes
 
 ---
 
