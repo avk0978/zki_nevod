@@ -190,6 +190,7 @@ Use cases:
 
 **Kolpakov Andrey**  
 GitHub: [@avk0978](https://github.com/avk0978)  
+ORCID: [0009-0004-8678-077X](https://orcid.org/0009-0004-8678-077X)  
 Email: a.v.kolpakov@gmail.com  
 
 *Concept formulated and first documented: April 24, 2026.*  
