@@ -97,15 +97,18 @@ class Router:
             return False
 
     async def _deliver_local(self, pkt: Packet):
-        """
-        Deliver to a cell registered on this node.
-        In a real implementation this would push to the cell's WebSocket session.
-        For now: emit to delivery callback if set.
-        """
+        """Deliver to a cell connected on this node."""
+        cell_id, _ = parse_addr(pkt.to_addr)
+        if cell_id:
+            # Cell connection is registered in transport by cell_id after auth+CELL_REGISTER
+            sent = await self.node.transport.send_to(cell_id, pkt)
+            if sent:
+                return
+        # Fallback: on_message callback (used in tests and embedding scenarios)
         if self.node.on_message:
             await self.node.on_message(pkt)
         else:
-            log.debug("router: local delivery for %s (no handler)", pkt.to_addr[:16])
+            log.debug("router: cell %s not connected, no handler", pkt.to_addr[:16])
 
     async def flush_buffer(self, cell_id: str):
         """Attempt to deliver all buffered messages for a cell that came online."""

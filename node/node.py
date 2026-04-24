@@ -223,6 +223,16 @@ class Node:
             is_home      = bool(data.get("is_home", True))
         except Exception:
             return
+
+        # Claimed identity must match the key proven during auth handshake
+        if signing_pub != conn.peer_signing_pubkey:
+            log.warning("CELL_REGISTER rejected: signing_pubkey mismatch from %s",
+                        conn.peer_node_id[:8])
+            return
+        if cell_id != conn.peer_node_id:
+            log.warning("CELL_REGISTER rejected: cell_id/peer_node_id mismatch")
+            return
+
         await self.storage.register_cell(cell_id, signing_pub, enc_pub, is_home)
         await self.storage.update_presence(
             cell_id,
@@ -230,6 +240,9 @@ class Node:
             visiting_node_id=None,
         )
         log.info("cell registered: %s (home=%s)", cell_id[:8], is_home)
+
+        # Deliver any buffered messages that arrived while cell was offline
+        await self.router.flush_buffer(cell_id)
 
     # --- convenience ---
 
