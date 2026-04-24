@@ -13,7 +13,6 @@ import os
 from typing import Optional, Callable, Dict, Awaitable
 
 import websockets
-from websockets.server import WebSocketServerProtocol
 from websockets.exceptions import ConnectionClosed
 
 from .protocol import Packet, pack, unpack, T
@@ -144,7 +143,7 @@ class Transport:
 
     # --- internal ---
 
-    async def _handle_incoming(self, ws: WebSocketServerProtocol, path: str = "/"):
+    async def _handle_incoming(self, ws, path: str = "/"):
         try:
             conn = await self._do_auth(ws, expected_node_id=None, initiator=False)
         except Exception as e:
