@@ -191,6 +191,7 @@ Use cases:
 **Kolpakov Andrey**  
 GitHub: [@avk0978](https://github.com/avk0978)  
 ORCID: [0009-0004-8678-077X](https://orcid.org/0009-0004-8678-077X)  
+DOI: [10.5281/zenodo.19734648](https://doi.org/10.5281/zenodo.19734648)  
 Email: a.v.kolpakov@gmail.com  
 
 *Concept formulated and first documented: April 24, 2026.*  
